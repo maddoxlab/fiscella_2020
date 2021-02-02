@@ -35,10 +35,10 @@ subjects = ['003', '004', '005', '006', '007', '008', '009', '010', '011', '012'
             '015', '016', '017']
 angles = np.array([0, 90, 180])
 snrs = np.array([0, -3, -6])
-num_correct = np.zeros((len(subjects), 4, len(snrs), 192/12))
-num_presented = np.zeros((len(subjects), 4, len(snrs), 192/12))
+num_correct = np.zeros((len(subjects), 4, len(snrs), int(192/12)))
+num_presented = np.zeros((len(subjects), 4, len(snrs), int(192/12)))
 
-percent_correct = np.zeros((len(subjects), 4, len(snrs), 192/12))
+percent_correct = np.zeros((len(subjects), 4, len(snrs), int(192/12)))
 counts = np.zeros((len(subjects), 4, len(snrs)))
 
 for i,sub in enumerate(subjects):

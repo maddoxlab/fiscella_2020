@@ -84,13 +84,13 @@ print('\n\n================\n\n')
 fig = qqplot(model.resid, line='s')
 
 
-formula = 'dpc ~ snr + angle + C(subj)'
-formula = 'dpc ~ C(snr) + C(angle) + C(snr):C(subj)'
+formula = 'dpc ~ C(snr) + C(angle) + C(snr):C(angle)'
+#formula = 'dpc ~ C(snr) + C(angle) + C(snr):C(subj)'
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 md = smf.mixedlm(formula, data, groups=data.subj)
 mdf = md.fit()
 print(mdf.summary())
 
-fig = qqplot(mdf.resid, line='s')
-data.to_csv('flippyface_data.csv')
+#fig = qqplot(mdf.resid, line='s')
+#data.to_csv('flippyface_data.csv')
