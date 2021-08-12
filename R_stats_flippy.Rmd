@@ -1,0 +1,62 @@
+---
+title: "Untitled"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+setwd('E:\\')
+
+# load packages
+easypackages::libraries('dplyr', 'tidyr', 'lme4', 'lmerTest', 'brglm', 'ggplot2', 'simr', 'sjPlot')
+
+```
+
+
+```{r}
+df_flippy2 = read.csv('flippy2.csv')
+df_flippy2 = df_flippy2 %>% mutate(angle=factor(angle, labels=c('upright', 'inverted')), match=factor(match, labels=c('talker', 'masker')))
+
+model = glmer(response ~ t_mod + angle + match + angle:match + t_mod:angle + t_mod:match + t_mod:angle:match + (1 + t_mod | subj), data = df_flippy2, family = binomial(link='probit'))
+summary(model)
+
+tab_model(model, file='E:/flippy2.doc')
+```
+```{r}
+power1 = powerCurve(extend(model, along = 'subj', n = 200), test=fixed("t_mod:matchmasker", "z"), along = 'subj', breaks = c(5, 7, 10, 15, 20, 30, 40, 50, 70, 100, 150, 200), nsim = 100)
+plot(power1)
+power2 = powerCurve(extend(model, along = 'subj', n = 2000), test=fixed("t_mod:angleinverted:matchmasker", "z"), along = 'subj', breaks = c(50, 70, 100, 150, 200, 300, 450, 650, 800, 1000), nsim = 100)
+plot(power2)
+```
+```{r}
+power3 = powerCurve(extend(model, along = 'subj', n = 1000), test=fixed("t_mod:angleinverted:matchmasker", "z"), along = 'subj', breaks = c(400, 600, 1000), nsim = 10)
+plot(power3)
+```
+
+```{r}
+df_flippyword = read.csv('flippy1word.csv')
+
+df_flippyword = df_flippyword %>% mutate(angle=factor(angle, labels=c('static', '0', '90', '180')), snr=factor(snr, labels=c('0dB', '-3dB', '-6dB')), sent=factor(sent), subj=factor(subj))
+
+#df_flippy1 = df_flippy1 %>% mutate(angle = factor(angle, levels = c('0','90','180','static')))
+
+model = glmer(score ~ angle + snr + angle:snr + (1 + snr | subj), data = df_flippyword, family = binomial(link='probit'))
+tab_model(model, file='E:/flippy1staticref.doc')
+summary(model)
+```
+```{r}
+df_flippyword = df_flippyword %>% mutate(angle = factor(angle, levels = c('0','90','180','static')))
+
+model = glmer(score ~ angle + snr + angle:snr + (1 + snr | subj), data = df_flippyword, family = binomial(link='probit'))
+summary(model)
+tab_model(model, file='E:/flippy1upref.doc')
+df_flippyword = df_flippyword %>% mutate(angle = factor(angle, levels = c('90','0','180','static')))
+
+model = glmer(score ~ angle + snr + angle:snr + (1 +snr | subj), data = df_flippyword, family = binomial(link='probit'))
+tab_model(model, file='E:/flippy1sidewaysref.doc')
+summary(model)
+```
+

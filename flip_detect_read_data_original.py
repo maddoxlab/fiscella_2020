@@ -50,8 +50,11 @@ false_alarm_subject = np.zeros((len(subjects),2,2,2,2)) #array of subjects circl
 dprime_subjects = np.zeros((len(subjects),5))
 dprime_diss = np.zeros((len(subjects),4))
 pc_disagree_conditions = np.zeros((3, len(subjects))) #used for T-test at end of code
-
-
+subjects_trials_correct = []
+subjects_trials_response = [] 
+subjects_trials_info = [] 
+subject_ids = []
+bias_diss = np.zeros((len(subjects),4))
 for j in range(len(subjects)):
     fname = path + subjects[j] + '_flip_detect.tab'
     data = read_tab(fname, group_start='trial_id', group_end='trial_ok', return_params=False)
@@ -92,7 +95,11 @@ for j in range(len(subjects)):
                 trials_info += [[a, b, c, d]]
                 trials_repmod += [literal_eval(data[i]['TRIAL PARAMETERS'][0][0])['RESPONSE']]
                 trials_correct += [literal_eval(data[i]['TRIAL PARAMETERS'][0][0])['SCORE']]
+                subject_ids += [j]
     
+    subjects_trials_correct.append(trials_correct)
+    subjects_trials_response.append(trials_repmod)
+    subjects_trials_info.append(trials_info)
     false_alarm_subject[j]=false_alarm_circle #false alarms in order of subjects, number of false alarms for each condition
 
 #part of your code
@@ -115,7 +122,11 @@ for j in range(len(subjects)):
     cr = 100 - pm_disagree[0]
     
 #d-prime arrays
-    dp_disagree = dprime(np.transpose([hr, mr, fa, cr], [1, 2, 0]))
+    dp_disagree, bias = dprime(np.transpose([hr, mr, fa, cr], [1, 2, 0]), return_bias=True)
+    bias_diss[j][0] = bias[0, 1] #upright target
+    bias_diss[j][1] = bias[0, 0] #upright masker
+    bias_diss[j][2] = bias[1, 1] #flipped target
+    bias_diss[j][3] = bias[1, 0] #flipped masker
 
     dprime_diss[j][0] = dp_disagree[0, 1] #upright target
     dprime_diss[j][1] = dp_disagree[0, 0] #upright masker
@@ -169,6 +180,17 @@ color_down = u'#882255'
 marker_up = '^-'
 marker_down = 'v-'
 ms=6
+
+good_inds = np.where(np.concatenate([[s[0]!=s[1] for s in sinfo] for sinfo in subjects_trials_info]))[0]
+data = dict(t_mod=np.concatenate([[s[0] for s in sinfo] for sinfo in subjects_trials_info])[good_inds],
+            m_mod=np.concatenate([[s[1] for s in sinfo] for sinfo in subjects_trials_info])[good_inds],
+            angle=np.concatenate([[s[2] for s in sinfo] for sinfo in subjects_trials_info])[good_inds],
+            match=np.concatenate([[s[3] for s in sinfo] for sinfo in subjects_trials_info])[good_inds],
+            correct=np.concatenate([s for s in subjects_trials_correct])[good_inds],
+            response=np.concatenate([s for s in subjects_trials_response])[good_inds],
+            subj=np.array(subject_ids)[good_inds])
+df = DataFrame(data)
+df.to_csv('/home/maddy/Shared VM/flippy2.csv')
 
 # Figure 1: PC Target vs Masker, Upright 
 width = 5
@@ -364,7 +386,7 @@ for i in range(3):
     s = scipy.stats.shapiro(a)
     print(t)
     print(s)
-stop
+    
 print(scipy.stats.ttest_1samp(pc_disagree_conditions[:2].mean(0), 0, axis=0))
 
 upright_dprimes = dprime_diss[:, :2, np.newaxis]
@@ -386,6 +408,41 @@ import statsmodels.formula.api as smf
 md = smf.mixedlm(formula, data, groups=data.subj)
 mdf = md.fit()
 print(mdf.summary())
+# %%
+percent_sig_tvm = []
+percent_sig_inv = []
+for n_sub in np.arange(2, 1000):
+    print(n_sub)
+    pval_tvm = []
+    pval_inv = []
+    for n in np.arange(10000):
+        sub_ind = np.random.choice(np.arange(23), (n_sub,))
+        disagree_tvm_resamp = disagree_tvm.mean(1)[sub_ind]
+        t, p_tvm = scipy.stats.ttest_1samp(disagree_tvm_resamp, 0, axis=0)
+        disagree_inv_resamp = disagree_up_vs_inv[sub_ind]
+        t, p_inv = scipy.stats.ttest_1samp(disagree_inv_resamp, 0, axis=0)
+        
+        pval_tvm.append(p_tvm)
+        pval_inv.append(p_inv)
+    percent_sig_tvm.append(100 * sum(np.array(pval_tvm) < 0.05) / len(pval_tvm))
+    percent_sig_inv.append(100 * sum(np.array(pval_inv) < 0.05) / len(pval_inv))
+from expyfun.io import write_hdf5
+write_hdf5('power_analysis_sim.hdf5', dict(percent_sig_inv=percent_sig_inv, percent_sig_tvm=percent_sig_tvm))
+plt.figure()
+plt.plot(np.arange(2, 1000), percent_sig_tvm)
+plt.plot(np.arange(2, 1000), percent_sig_inv)
+plt.plot([2, 1000], [80, 80], 'k')
+plt.legend(('Target vs. Masker', 'Upright vs. Inverted'))
+plt.xlabel('Number of simulated subjects')
+plt.ylabel('% of 1000 observations significant')
+
+import scipy.stats
+import statsmodels.stats.power as smp
+import matplotlib.pyplot as plt
+
+power_analysis = smp.TTestIndPower()
+sample_size = power_analysis.solve_power(effect_size=0.064, power=0.8, alpha=0.05)
+
 
 """# %% do the linear model -- this stuff should prop
 trials_int = np.array([trials_info[:, 1] & trials_info[:, 2],
